@@ -36,6 +36,7 @@ import { API_KEYS } from "@/config/api-keys";
 import TradeJournal from "@/components/trade-journal";
 import ArenaMode from "@/components/arena-mode";
 import AgentDebatePanel from "@/components/agent-debate-panel";
+import RLTradingAgent from "@/components/rl-trading-agent";
 import {
   Bot,
   Play,
@@ -54,6 +55,7 @@ import {
   BookOpen,
   Swords,
   Scale,
+  Brain,
 } from "lucide-react";
 
 // ─── Watched-asset catalogue ───────────────────────────────────────────────────
@@ -141,7 +143,8 @@ function StatusBadge({ status }: { status: AgentStatus }) {
 }
 
 // ─── Tab type ─────────────────────────────────────────────────────────────────
-type TabId = "config" | "log" | "journal" | "debate" | "arena";
+type TabId = "config" | "log" | "journal" | "debate" | "arena" | "rl";
+type AgentMode = "rule-based" | "rl";
 
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function TradingAgentPanel() {
@@ -150,6 +153,7 @@ export default function TradingAgentPanel() {
   const [status, setStatus] = useState<AgentStatus>("idle");
   const [log, setLog] = useState<AgentLogEntry[]>([]);
   const [activeTab, setActiveTab] = useState<TabId>("config");
+  const [agentMode, setAgentMode] = useState<AgentMode>("rule-based");
 
   // Hydrate from localStorage on mount
   useEffect(() => {
@@ -227,6 +231,15 @@ export default function TradingAgentPanel() {
           {log.length > 0 && (
             <span className="bg-purple-100 text-purple-700 text-[10px] font-semibold rounded-full px-1.5">{log.length}</span>
           )}
+        </span>
+      ),
+    },
+    {
+      id: "rl",
+      label: (
+        <span className="flex items-center gap-1.5">
+          <Brain className="h-3.5 w-3.5 text-blue-600" />RL Agent
+          <span className="bg-gradient-to-r from-blue-500 to-purple-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none">AI</span>
         </span>
       ),
     },
@@ -657,6 +670,11 @@ export default function TradingAgentPanel() {
           </CardContent>
         </Card>
       )}
+
+      {/* ══════════════════════════════════════════════════
+          RL AGENT TAB
+      ══════════════════════════════════════════════════ */}
+      {activeTab === "rl" && <RLTradingAgent />}
 
       {/* ══════════════════════════════════════════════════
           JOURNAL TAB

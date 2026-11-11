@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { CheckCircle2, ShoppingCart } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -21,39 +22,54 @@ interface AssetBuyModalProps {
   assetType: "stock" | "crypto"
   open: boolean
   onClose: () => void
+  onPurchased?: () => void
 }
 
-export default function AssetBuyModal({ asset, assetType, open, onClose }: AssetBuyModalProps) {
+export default function AssetBuyModal({
+  asset,
+  assetType,
+  open,
+  onClose,
+  onPurchased,
+}: AssetBuyModalProps) {
   const [quantity, setQuantity] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
 
+  const getTotalAmount = () => {
+    if (!quantity || Number.isNaN(Number.parseFloat(quantity))) return 0
+    return Number.parseFloat(quantity) * asset.price
+  }
+
+  const isValid =
+    quantity !== "" &&
+    !Number.isNaN(Number.parseFloat(quantity)) &&
+    Number.parseFloat(quantity) > 0
+
   const handleBuy = () => {
+    if (!isValid) return
     setIsLoading(true)
 
-    // Get existing portfolio from localStorage or initialize empty array
-    const portfolioKey = assetType === "stock" ? "userStocks" : "userCrypto";
-    const existingPortfolio = JSON.parse(localStorage.getItem(portfolioKey) || "[]");
-
-    // Check if asset already exists in portfolio
-    const assetIndex = existingPortfolio.findIndex((item: any) => item.id === asset.id);
-    const quantityNum = Number.parseFloat(quantity);
-    const totalAmount = getTotalAmount();
+    const portfolioKey = assetType === "stock" ? "userStocks" : "userCrypto"
+    const existingPortfolio = JSON.parse(localStorage.getItem(portfolioKey) || "[]")
+    const quantityNum = Number.parseFloat(quantity)
+    const totalAmount = getTotalAmount()
+    const assetIndex = existingPortfolio.findIndex((item: any) => item.id === asset.id)
 
     if (assetIndex !== -1) {
-      const existingAsset = existingPortfolio[assetIndex];
-      const newQuantity = existingAsset.quantity + quantityNum;
-      const newTotalValue = existingAsset.totalValue + totalAmount;
-      const newAvgBuyPrice = newTotalValue / newQuantity;
+      const existingAsset = existingPortfolio[assetIndex]
+      const newQuantity = existingAsset.quantity + quantityNum
+      const newTotalValue = existingAsset.totalValue + totalAmount
+      const newAvgBuyPrice = newTotalValue / newQuantity
 
       existingPortfolio[assetIndex] = {
         ...existingAsset,
         quantity: newQuantity,
         totalValue: newTotalValue,
         avgBuyPrice: newAvgBuyPrice,
-        profit: (asset.price * newQuantity) - newTotalValue,
-        profitPercentage: ((asset.price / newAvgBuyPrice) - 1) * 100
-      };
+        profit: asset.price * newQuantity - newTotalValue,
+        profitPercentage: (asset.price / newAvgBuyPrice - 1) * 100,
+      }
     } else {
       existingPortfolio.push({
         ...asset,
@@ -61,77 +77,78 @@ export default function AssetBuyModal({ asset, assetType, open, onClose }: Asset
         avgBuyPrice: asset.price,
         totalValue: totalAmount,
         profit: 0,
-        profitPercentage: 0
-      });
+        profitPercentage: 0,
+      })
     }
 
-    // Save updated portfolio back to localStorage
-    localStorage.setItem(portfolioKey, JSON.stringify(existingPortfolio));
+    localStorage.setItem(portfolioKey, JSON.stringify(existingPortfolio))
 
-    // Save transaction record
     saveTransaction({
       id: `tx-${Date.now()}`,
       assetId: asset.id,
       assetName: asset.name,
-      assetType: assetType,
+      assetType,
       type: "buy",
-      quantity: Number.parseFloat(quantity),
+      quantity: quantityNum,
       price: asset.price,
-      totalValue: getTotalAmount(),
-      timestamp: Date.now()
-    });
+      totalValue: totalAmount,
+      timestamp: Date.now(),
+    })
 
-    // Simulate API call
     setTimeout(() => {
       setIsLoading(false)
       toast({
-        title: "Purchase Successful",
-        description: `You have successfully purchased ${quantity} ${assetType === "stock" ? "shares" : "units"} of ${asset.name}.`,
+        title: "Purchase successful",
+        description: `Bought ${quantity} ${assetType === "stock" ? "shares" : "units"} of ${asset.name}.`,
       })
+      setQuantity("")
       onClose()
-
-      // Force refresh the page to show updated portfolio
-      window.location.reload();
-    }, 1500)
+      onPurchased?.()
+    }, 1200)
   }
 
-  const getTotalAmount = () => {
-    if (!quantity || isNaN(Number.parseFloat(quantity))) return 0
-    return Number.parseFloat(quantity) * asset.price
-  }
+  const totalAmount = getTotalAmount()
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[560px]">
         <DialogHeader>
-          <DialogTitle>Buy {asset.name}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <ShoppingCart className="h-4 w-4 text-action-buy" />
+            Buy {asset.name}
+          </DialogTitle>
           <DialogDescription>
-            <>Enter the quantity you want to buy. Current price: ₹{asset.price.toLocaleString("en-IN")}</>
+            Current price: ₹{asset.price.toLocaleString("en-IN")}
           </DialogDescription>
         </DialogHeader>
 
         <AssetPriceChart assetId={asset.id} assetType={assetType} />
 
-        <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="quantity" className="text-right">
-                Quantity
-              </Label>
-              <Input
-                id="quantity"
-                type="number"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                className="col-span-3"
-                min="0"
-                step={assetType === "crypto" ? "0.000001" : "1"}
-              />
-            </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label className="text-right">Total Amount</Label>
-            <div className="col-span-3">
-              ₹{getTotalAmount().toLocaleString("en-IN")}
-            </div>
+        <div className="grid gap-4 py-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="quantity">
+              Quantity{" "}
+              <span className="font-normal text-muted-foreground">
+                ({assetType === "crypto" ? "units" : "shares"})
+              </span>
+            </Label>
+            <Input
+              id="quantity"
+              type="number"
+              value={quantity}
+              onChange={(event) => setQuantity(event.target.value)}
+              placeholder={assetType === "crypto" ? "0.001" : "1"}
+              min="0"
+              step={assetType === "crypto" ? "0.000001" : "1"}
+              className="focus-visible:ring-action-buy"
+            />
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg bg-muted px-4 py-3">
+            <span className="text-sm text-muted-foreground">Total amount</span>
+            <span className="text-lg font-bold text-dark">
+              ₹{totalAmount.toLocaleString("en-IN")}
+            </span>
           </div>
         </div>
 
@@ -141,10 +158,20 @@ export default function AssetBuyModal({ asset, assetType, open, onClose }: Asset
           </Button>
           <Button
             onClick={handleBuy}
-            className="ml-2 bg-action-buy-light text-action-buy hover:bg-action-buy hover:text-white transition-colors"
-            disabled={!quantity || isNaN(Number.parseFloat(quantity)) || Number.parseFloat(quantity) <= 0 || isLoading}
+            disabled={!isValid || isLoading}
+            className="min-w-[110px] gap-1.5 bg-action-buy text-white hover:bg-action-buy-hover"
           >
-            {isLoading ? "Processing..." : "Buy Now"}
+            {isLoading ? (
+              <>
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                Processing…
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Buy Now
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

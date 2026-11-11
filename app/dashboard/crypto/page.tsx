@@ -336,6 +336,7 @@ export default function CryptoPage() {
           assetType="crypto"
           open={showBuyModal}
           onClose={() => setShowBuyModal(false)}
+          onPurchased={() => setUserCrypto(JSON.parse(localStorage.getItem("userCrypto") || "[]"))}
         />
       )}
 

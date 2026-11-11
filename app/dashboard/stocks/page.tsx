@@ -361,6 +361,7 @@ export default function StocksPage() {
           assetType="stock"
           open={showBuyModal}
           onClose={() => setShowBuyModal(false)}
+          onPurchased={() => setUserStocks(JSON.parse(localStorage.getItem("userStocks") || "[]"))}
         />
       )}
 

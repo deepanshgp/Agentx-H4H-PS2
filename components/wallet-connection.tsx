@@ -96,7 +96,7 @@ export function WalletConnection() {
             <DialogHeader>
               <DialogTitle>Connect your wallet</DialogTitle>
               <DialogDescription>
-                Connect your wallet to access Web3 features like token swapping, NFT portfolio, and DeFi yield farming.
+                Connect your wallet to use token swaps and view your NFT portfolio.
               </DialogDescription>
             </DialogHeader>
             <div className="grid grid-cols-2 gap-4 py-4">
