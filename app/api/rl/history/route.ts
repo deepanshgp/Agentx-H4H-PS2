@@ -17,7 +17,13 @@ async function fetchCrypto(id: string) {
   const data = await res.json();
   const rows: [number, number][] = data?.prices ?? [];
   const clean = rows.filter((r) => Number.isFinite(r[1]) && r[1] > 0);
-  return { timestamps: clean.map((r) => r[0]), prices: clean.map((r) => r[1]) };
+  const timestamps = clean.map((r) => r[0]);
+  const prices = clean.map((r) => r[1]);
+  // CoinGecko free tier only gives daily closes — approximate OHLC from adjacent closes
+  const opens = prices.map((p, i) => (i === 0 ? p : prices[i - 1]));
+  const highs = prices.map((p, i) => Math.max(p, opens[i]) * (1 + 0.004));
+  const lows  = prices.map((p, i) => Math.min(p, opens[i]) * (1 - 0.004));
+  return { timestamps, prices, opens, highs, lows };
 }
 
 async function fetchStock(ticker: string) {
@@ -30,17 +36,27 @@ async function fetchStock(ticker: string) {
   const data = await res.json();
   const r = data?.chart?.result?.[0];
   const ts: number[] = r?.timestamp ?? [];
-  const close: (number | null)[] = r?.indicators?.quote?.[0]?.close ?? [];
+  const q = r?.indicators?.quote?.[0] ?? {};
+  const rawOpen: (number | null)[] = q.open ?? [];
+  const rawHigh: (number | null)[] = q.high ?? [];
+  const rawLow: (number | null)[] = q.low ?? [];
+  const rawClose: (number | null)[] = q.close ?? [];
   const timestamps: number[] = [];
   const prices: number[] = [];
+  const opens: number[] = [];
+  const highs: number[] = [];
+  const lows: number[] = [];
   for (let i = 0; i < ts.length; i++) {
-    const c = close[i];
+    const o = rawOpen[i], h = rawHigh[i], l = rawLow[i], c = rawClose[i];
     if (typeof c === "number" && Number.isFinite(c) && c > 0) {
       timestamps.push(ts[i] * 1000);
       prices.push(c);
+      opens.push(typeof o === "number" && Number.isFinite(o) ? o : c);
+      highs.push(typeof h === "number" && Number.isFinite(h) ? h : c);
+      lows.push(typeof l === "number" && Number.isFinite(l) ? l : c);
     }
   }
-  return { timestamps, prices };
+  return { timestamps, prices, opens, highs, lows };
 }
 
 export async function GET(req: Request) {
@@ -53,12 +69,15 @@ export async function GET(req: Request) {
   }
 
   try {
-    const { prices, timestamps } = type === "crypto" ? await fetchCrypto(id) : await fetchStock(id);
+    const { prices, timestamps, opens, highs, lows } = type === "crypto" ? await fetchCrypto(id) : await fetchStock(id);
     if (prices.length < 150) throw new Error(`Only ${prices.length} bars returned`);
-    return NextResponse.json({ id, type, source: "live", prices, timestamps });
+    return NextResponse.json({ id, type, source: "live", prices, timestamps, opens, highs, lows });
   } catch (err) {
     const n = 800;
     const prices = generateSyntheticPrices(n, hashSeed(id), type === "crypto" ? 1000000 : 1500);
+    const opens = prices.map((p, i) => (i === 0 ? p : prices[i - 1]));
+    const highs = prices.map((p, i) => Math.max(p, opens[i]) * 1.004);
+    const lows  = prices.map((p, i) => Math.min(p, opens[i]) * 0.996);
     const day = 86400000;
     const end = Date.now();
     const timestamps = prices.map((_, i) => end - (n - 1 - i) * day);
@@ -69,6 +88,9 @@ export async function GET(req: Request) {
       reason: err instanceof Error ? err.message : "unknown error",
       prices,
       timestamps,
+      opens,
+      highs,
+      lows,
     });
   }
 }

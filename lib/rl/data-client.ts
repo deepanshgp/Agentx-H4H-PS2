@@ -3,8 +3,17 @@
 import type { PriceSeries } from "./environment";
 import type { RLAsset } from "./assets";
 
+export interface Candle {
+  ts: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
 export interface HistoryResult {
   series: PriceSeries;
+  candles: Candle[];
   source: "live" | "synthetic";
   reason?: string;
 }
@@ -20,8 +29,24 @@ export async function fetchHistory(asset: RLAsset, force = false): Promise<Histo
   const res = await fetch(`/api/rl/history?id=${encodeURIComponent(asset.id)}&type=${asset.type}`);
   if (!res.ok) throw new Error(`History request failed (${res.status})`);
   const data = await res.json();
+
+  const prices: number[] = data.prices;
+  const timestamps: number[] = data.timestamps;
+  const opens: number[] = data.opens ?? prices;
+  const highs: number[] = data.highs ?? prices;
+  const lows: number[]  = data.lows  ?? prices;
+
+  const candles: Candle[] = prices.map((close, i) => ({
+    ts:    timestamps[i],
+    open:  opens[i]  ?? close,
+    high:  highs[i]  ?? close,
+    low:   lows[i]   ?? close,
+    close,
+  }));
+
   const value: HistoryResult = {
-    series: { prices: data.prices, timestamps: data.timestamps, label: asset.name },
+    series: { prices, timestamps, label: asset.name },
+    candles,
     source: data.source,
     reason: data.reason,
   };
