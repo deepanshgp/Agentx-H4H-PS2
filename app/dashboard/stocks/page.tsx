@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Search, ArrowUpRight, ArrowDownRight, RefreshCw, IndianRupee } from "lucide-react"
@@ -12,10 +11,12 @@ import AssetSellModal from "@/components/asset-sell-modal"
 import INRBalanceModal from "@/components/inr-balance-modal"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { MarketBestPerformers } from "@/components/market-best-performers"
+import MarketPriceChart from "@/components/market-price-chart"
 
 export default function StocksPage() {
   const [marketStocks, setMarketStocks] = useState<any[]>([])
-  const [userStocks, setUserStocks] = useState<any[]>([])
+  const [chartAsset, setChartAsset] = useState<any>(null)
+  const [chartLocation, setChartLocation] = useState<"performer" | "row">("row")
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showBuyModal, setShowBuyModal] = useState(false)
@@ -27,47 +28,29 @@ export default function StocksPage() {
   const [showDepositModal, setShowDepositModal] = useState(false)
   const [showWithdrawModal, setShowWithdrawModal] = useState(false)
 
-  // Function to load user portfolio from localStorage
-  const loadUserPortfolio = () => {
-    try {
-      const savedPortfolio = localStorage.getItem("userStocks")
-      if (savedPortfolio) {
-        setUserStocks(JSON.parse(savedPortfolio))
-      }
-    } catch (error) {
-      console.error("Error loading user portfolio:", error)
-    }
-  }
-
   // Function to fetch market data and update portfolio
   const fetchMarketData = async () => {
     setIsLoading(true)
     setError(null)
-    
+
     try {
       // Fetch real-time stock data
       const stockData = await fetchRealTimeStockData()
       setMarketStocks(stockData)
-      
-      // Load user portfolio from localStorage
-      loadUserPortfolio()
-      
-      // If user has stocks, update with real-time data
+
+      // Keep the stored portfolio's prices current for the Portfolio dashboard.
       const savedPortfolio = localStorage.getItem("userStocks")
       if (savedPortfolio) {
         const userPortfolio = JSON.parse(savedPortfolio)
         const updatedPortfolio = updatePortfolioWithRealTimeData(userPortfolio, stockData)
-        setUserStocks(updatedPortfolio)
-        
+
         // Save updated portfolio with real-time prices back to localStorage
         localStorage.setItem("userStocks", JSON.stringify(updatedPortfolio))
       }
     } catch (error) {
       console.error("Error fetching data:", error)
       setError("Failed to fetch data. Please try again.")
-      
-      // Load user portfolio even if market data fails
-      loadUserPortfolio()
+
     } finally {
       setIsLoading(false)
       setLastUpdated(new Date())
@@ -83,8 +66,8 @@ export default function StocksPage() {
   }, [])
 
   const handleBalanceUpdate = (amount: number, type: 'deposit' | 'withdraw') => {
-    const newBalance = type === 'deposit' 
-      ? inrBalance + amount 
+    const newBalance = type === 'deposit'
+      ? inrBalance + amount
       : inrBalance - amount
     setInrBalance(newBalance)
     localStorage.setItem("inrBalance", newBalance.toString())
@@ -93,10 +76,10 @@ export default function StocksPage() {
   // Fetch data on component mount
   useEffect(() => {
     fetchMarketData()
-    
+
     // Set up auto-refresh every 5 minutes
     const intervalId = setInterval(fetchMarketData, 5 * 60 * 1000)
-    
+
     // Clean up interval on component unmount
     return () => clearInterval(intervalId)
   }, [])
@@ -107,15 +90,20 @@ export default function StocksPage() {
       stock.ticker.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
-  const filteredUserStocks = userStocks.filter(
-    (stock) =>
-      stock.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      stock.ticker.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
-
   const handleBuy = (asset: any) => {
+    setChartAsset(asset)
+    setChartLocation("row")
     setSelectedAsset(asset)
     setShowBuyModal(true)
+  }
+
+  const toggleChart = (asset: any, location: "performer" | "row" = "row") => {
+    if (chartAsset?.id === asset.id && chartLocation === location) {
+      setChartAsset(null)
+      return
+    }
+    setChartLocation(location)
+    setChartAsset(asset)
   }
 
   const handleSell = (asset: any) => {
@@ -167,7 +155,7 @@ export default function StocksPage() {
         </Alert>
       )}
 
-      <MarketBestPerformers assets={marketStocks} onBuy={handleBuy} />
+      <MarketBestPerformers assets={marketStocks} onBuy={handleBuy} onChart={(asset) => toggleChart(asset, "performer")} selectedAsset={chartAsset} assetType="stock" chartLocation={chartLocation} />
 
       <div className="flex items-center space-x-2">
         <div className="relative flex-1 max-w-sm">
@@ -183,22 +171,7 @@ export default function StocksPage() {
       </div>
 
       <div className="w-full">
-          <Tabs defaultValue="market" className="w-full">
-            <TabsList className="grid w-full max-w-md grid-cols-2 bg-gray-100 p-1 rounded-lg">
-              <TabsTrigger 
-                value="market"
-                className="rounded-md data-[state=active]:bg-primary data-[state=active]:text-white data-[state=inactive]:text-gray-600 transition-all"
-              >
-                Market
-              </TabsTrigger>
-              <TabsTrigger 
-                value="portfolio"
-                className="rounded-md data-[state=active]:bg-accent data-[state=active]:text-white data-[state=inactive]:text-gray-600 transition-all"
-              >
-                Portfolio
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="market" className="mt-6">
+
               <Card>
                 <CardHeader>
                   <CardTitle>Stock Market</CardTitle>
@@ -219,10 +192,24 @@ export default function StocksPage() {
                         <div className="p-4 text-center">Loading real-time data...</div>
                       ) : filteredMarketStocks.length > 0 ? (
                         filteredMarketStocks.map((stock) => (
-                          <div key={stock.id} className="grid grid-cols-7 p-4 text-sm">
+                          <div key={stock.id}>
+                          <div
+                            className="grid grid-cols-7 p-4 text-sm cursor-pointer hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+                            role="button"
+                            tabIndex={0}
+                            aria-expanded={chartLocation === "row" && chartAsset?.id === stock.id}
+                            aria-controls={`stock-chart-${stock.id}`}
+                            onClick={() => toggleChart(stock, "row")}
+                            onKeyDown={(event) => {
+                              if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
+                                event.preventDefault()
+                                toggleChart(stock, "row")
+                              }
+                            }}
+                          >
                             <div className="col-span-2">
-                              <div className="font-medium">{stock.name}</div>
-                              <div className="text-xs text-gray-500">{stock.ticker}</div>
+                              <span className="block font-medium">{stock.name}</span>
+                              <span className="block text-xs text-gray-500">{stock.ticker}</span>
                             </div>
                             <div className="col-span-1 flex items-center font-medium">
                               ₹{stock.price.toLocaleString("en-IN")}
@@ -244,12 +231,29 @@ export default function StocksPage() {
                             <div className="col-span-1 flex items-center justify-end">
                               <Button
                                 size="sm"
-                                onClick={() => handleBuy(stock)}
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  handleBuy(stock)
+                                }}
                                 className="bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
                               >
                                 Buy
                               </Button>
                             </div>
+                          </div>
+                          {chartLocation === "row" && chartAsset?.id === stock.id && (
+                            <div id={`stock-chart-${stock.id}`} className="border-t bg-muted/20 p-4">
+                              <MarketPriceChart
+                                asset={{
+                                  id: String(stock.ticker ?? stock.id),
+                                  name: stock.name,
+                                  ticker: stock.ticker ?? String(stock.id),
+                                }}
+                                assetType="stock"
+                                currentPrice={stock.price}
+                              />
+                            </div>
+                          )}
                           </div>
                         ))
                       ) : (
@@ -259,100 +263,6 @@ export default function StocksPage() {
                   </div>
                 </CardContent>
               </Card>
-            </TabsContent>
-            <TabsContent value="portfolio" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Your Stock Portfolio</CardTitle>
-                  <CardDescription>Manage your stock investments</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {isLoading ? (
-                    <div className="p-4 text-center">Updating portfolio with real-time data...</div>
-                  ) : filteredUserStocks.length > 0 ? (
-                    <div className="rounded-md border">
-                      <div className="grid grid-cols-9 p-4 text-sm font-medium text-gray-500">
-                        <div className="col-span-2">Name</div>
-                        <div className="col-span-1">Price</div>
-                        <div className="col-span-1">Change</div>
-                        <div className="col-span-1">Quantity</div>
-                        <div className="col-span-1">Avg. Buy</div>
-                        <div className="col-span-1">Total Value</div>
-                        <div className="col-span-1">Profit/Loss</div>
-                        <div className="col-span-1 text-right">Action</div>
-                      </div>
-                      <div className="divide-y">
-                        {filteredUserStocks.map((stock) => (
-                          <div key={stock.id} className="grid grid-cols-9 p-4 text-sm">
-                            <div className="col-span-2">
-                              <div className="font-medium">{stock.name}</div>
-                              <div className="text-xs text-gray-500">{stock.ticker}</div>
-                            </div>
-                            <div className="col-span-1 flex items-center font-medium">
-                              ₹{stock.price.toLocaleString("en-IN")}
-                            </div>
-                            <div
-                              className={`col-span-1 flex items-center ${
-                                stock.change >= 0 ? "text-green-600" : "text-red-600"
-                              }`}
-                            >
-                              {stock.change >= 0 ? (
-                                <ArrowUpRight className="mr-1 h-4 w-4" />
-                              ) : (
-                                <ArrowDownRight className="mr-1 h-4 w-4" />
-                              )}
-                              {Math.abs(stock.change).toFixed(2)}%
-                            </div>
-                            <div className="col-span-1 flex items-center text-gray-500">{stock.quantity}</div>
-                            <div className="col-span-1 flex items-center text-gray-500">
-                              ₹{stock.avgBuyPrice.toLocaleString("en-IN")}
-                            </div>
-                            <div className="col-span-1 flex items-center font-medium">
-                              ₹{stock.totalValue.toLocaleString("en-IN")}
-                            </div>
-                            <div
-                              className={`col-span-1 flex items-center ${
-                                stock.profit >= 0 ? "text-green-600" : "text-red-600"
-                              }`}
-                            >
-                              {stock.profit >= 0 ? "+" : ""}₹{stock.profit.toLocaleString("en-IN")}
-                              <span className="ml-1 text-xs">({stock.profitPercentage.toFixed(2)}%)</span>
-                            </div>
-                            <div className="col-span-1 flex items-center justify-end gap-2">
-                              <Button 
-                                size="sm" 
-                                onClick={() => handleBuy(stock)}
-                                className="bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
-                              >
-                                Buy
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                onClick={() => handleSell(stock)}
-                                className="bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
-                              >
-                                Sell
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-12 text-center">
-                      <p className="text-muted-foreground mb-4">You don't own any stocks yet.</p>
-                      <Button onClick={() => {
-                        const marketTab = document.querySelector('[data-state="inactive"][value="market"]') as HTMLElement;
-                        marketTab?.click();
-                      }}>
-                        Browse Market
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
       </div>
 
       {showBuyModal && selectedAsset && (
@@ -361,7 +271,6 @@ export default function StocksPage() {
           assetType="stock"
           open={showBuyModal}
           onClose={() => setShowBuyModal(false)}
-          onPurchased={() => setUserStocks(JSON.parse(localStorage.getItem("userStocks") || "[]"))}
         />
       )}
 

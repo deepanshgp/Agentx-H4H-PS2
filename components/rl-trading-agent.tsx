@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
+import { Slider, SliderNumberInput } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -519,7 +519,10 @@ export default function RLTradingAgent() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>PPO iterations: {settings.iterations}</Label>
+                  <div className="flex items-center justify-between gap-3">
+                    <Label>PPO iterations</Label>
+                    <SliderNumberInput aria-label="PPO iterations" value={settings.iterations} min={10} max={150} step={5} disabled={training} onValueChange={(v) => update("iterations", v)} />
+                  </div>
                   <Slider
                     value={[settings.iterations]}
                     min={10}
@@ -532,7 +535,10 @@ export default function RLTradingAgent() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Trade penalty: {settings.tradePenalty.toFixed(2)}</Label>
+                  <div className="flex items-center justify-between gap-3">
+                    <Label>Trade penalty</Label>
+                    <SliderNumberInput aria-label="Trade penalty" value={settings.tradePenalty} min={0} max={0.2} step={0.01} disabled={training} onValueChange={(v) => update("tradePenalty", v)} />
+                  </div>
                   <Slider
                     value={[settings.tradePenalty]}
                     min={0}
@@ -545,7 +551,10 @@ export default function RLTradingAgent() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Drawdown penalty: {settings.drawdownPenalty.toFixed(1)}</Label>
+                  <div className="flex items-center justify-between gap-3">
+                    <Label>Drawdown penalty</Label>
+                    <SliderNumberInput aria-label="Drawdown penalty" value={settings.drawdownPenalty} min={0} max={2} step={0.1} disabled={training} onValueChange={(v) => update("drawdownPenalty", v)} />
+                  </div>
                   <Slider
                     value={[settings.drawdownPenalty]}
                     min={0}
@@ -783,7 +792,10 @@ export default function RLTradingAgent() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Cycle every {settings.liveIntervalMinutes} min</Label>
+                  <div className="flex items-center justify-between gap-3">
+                    <Label>Cycle interval (minutes)</Label>
+                    <SliderNumberInput aria-label="Cycle interval in minutes" value={settings.liveIntervalMinutes} min={1} max={60} step={1} disabled={liveRunning} onValueChange={(v) => update("liveIntervalMinutes", v)} />
+                  </div>
                   <Slider
                     value={[settings.liveIntervalMinutes]}
                     min={1}

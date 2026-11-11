@@ -1,11 +1,11 @@
 import {
   Bitcoin,
   Bot,
-  BookOpen,
   BrainCircuit,
-  CandlestickChart,
   LayoutDashboard,
   LineChart,
+  Scale,
+  Swords,
   type LucideIcon,
 } from "lucide-react"
 
@@ -34,7 +34,6 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { name: "Stocks", href: "/dashboard/stocks", icon: LineChart, hint: "NSE / BSE equities" },
       { name: "Crypto", href: "/dashboard/crypto", icon: Bitcoin, hint: "Live crypto prices & trading" },
-      { name: "Charts", href: "/dashboard/charts", icon: CandlestickChart, hint: "Candlesticks & live charts" },
     ],
   },
   {
@@ -42,7 +41,8 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { name: "Auto Trader", href: "/dashboard/auto-trader", icon: Bot, hint: "Rule-based trading agent" },
       { name: "RL Agent", href: "/dashboard/rl-agent", icon: BrainCircuit, hint: "Self-learning PPO agent", badge: "Beta" },
-      { name: "Journal", href: "/dashboard/journal", icon: BookOpen, hint: "Review every trade" },
+      { name: "Debate", href: "/dashboard/debate", icon: Scale, hint: "Compare agent market views" },
+      { name: "Arena", href: "/dashboard/arena", icon: Swords, hint: "Run agents head to head" },
     ],
   },
 ]

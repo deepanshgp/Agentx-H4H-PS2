@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
+import { Slider, SliderNumberInput } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
@@ -215,7 +215,9 @@ function ArenaSetup({
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <Label className="text-sm">Arena Budget</Label>
-                  <span className="text-sm font-bold text-purple-700">{fmt(config.startingBalance)}</span>
+                  <div className="flex items-center gap-1 text-sm font-bold text-purple-700">
+                    ₹<SliderNumberInput aria-label="Arena budget in rupees" value={config.startingBalance} min={1000} max={100000} step={1000} onValueChange={(v) => setConfig((p) => ({ ...p, startingBalance: v }))} />
+                  </div>
                 </div>
                 <Slider
                   min={1000} max={100000} step={1000}
@@ -269,7 +271,9 @@ function ArenaSetup({
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <Label className="text-sm">Cycle Interval</Label>
-                  <span className="text-sm font-medium text-purple-700">every {config.intervalMinutes} min</span>
+                  <div className="flex items-center gap-1 text-sm font-medium text-purple-700">
+                    every <SliderNumberInput aria-label="Arena cycle interval in minutes" value={config.intervalMinutes} min={1} max={30} step={1} onValueChange={(v) => setConfig((p) => ({ ...p, intervalMinutes: v }))} /> min
+                  </div>
                 </div>
                 <Slider
                   min={1} max={30} step={1}
@@ -281,7 +285,9 @@ function ArenaSetup({
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <Label className="text-sm">Min Confidence</Label>
-                  <span className="text-sm font-medium text-purple-700">{config.minConfidenceThreshold}%</span>
+                  <div className="flex items-center gap-1 text-sm font-medium text-purple-700">
+                    <SliderNumberInput aria-label="Arena minimum confidence percentage" value={config.minConfidenceThreshold} min={40} max={90} step={5} onValueChange={(v) => setConfig((p) => ({ ...p, minConfidenceThreshold: v }))} />%
+                  </div>
                 </div>
                 <Slider
                   min={40} max={90} step={5}
