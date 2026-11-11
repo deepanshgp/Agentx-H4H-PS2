@@ -225,28 +225,27 @@ function buildModeratorUserPrompt(
   riskLevel: RiskLevel,
   args: AgentArgument[]
 ): string {
+  // Keep each agent summary short to avoid hitting token/request size limits
   const summary = args
-    .map(
-      (a) =>
-        `${DEBATE_AGENTS[a.role].name} voted ${a.vote.toUpperCase()} (${a.confidence}% confidence):\n"${a.argument}"\nKey points: ${a.keyPoints.map((p) => `- ${p}`).join("; ")}`
-    )
-    .join("\n\n");
+    .map((a) => {
+      const pts = a.keyPoints.slice(0, 2).join("; ");
+      return `${DEBATE_AGENTS[a.role].name}: ${a.vote.toUpperCase()} (${a.confidence}%) — ${a.argument.slice(0, 200)}${pts ? ` | ${pts}` : ""}`;
+    })
+    .join("\n");
 
   return (
     `Asset: ${assetName} (${assetType}) @ ₹${currentPrice.toLocaleString("en-IN")}\n` +
-    `Portfolio Risk Level: ${riskLevel}\n\n` +
-    `=== DEBATE TRANSCRIPT ===\n${summary}\n\n` +
-    `=== YOUR TASK ===\n` +
-    `Review all arguments above and determine the final trading action.\n\n` +
+    `Risk Level: ${riskLevel}\n\n` +
+    `DEBATE SUMMARY:\n${summary}\n\n` +
     `You MUST respond with ONLY a JSON object in this exact format:\n` +
     `{\n` +
-    `  "finalAction": "buy",\n` +
-    `  "finalConfidence": 75,\n` +
-    `  "reasoning": "Your 3-4 sentence synthesis here explaining which arguments won and why."\n` +
+    `  "finalAction": "hold",\n` +
+    `  "finalConfidence": 60,\n` +
+    `  "reasoning": "3-4 sentence synthesis of which arguments were strongest and why."\n` +
     `}\n\n` +
-    `The "finalAction" field must be exactly one of these three words: buy, sell, or hold.\n` +
-    `The "finalConfidence" field must be a number between 0 and 100.\n` +
-    `No other text. No explanation outside the JSON. Just the JSON object.`
+    `The "finalAction" field must be exactly one of: buy, sell, or hold.\n` +
+    `The "finalConfidence" field must be a number 0-100.\n` +
+    `No text outside the JSON.`
   );
 }
 
@@ -336,8 +335,9 @@ async function runModerator(
     finalConfidence = Math.min(100, Math.max(0, Number(parsed.finalConfidence) || 50));
     reasoning = String(parsed.reasoning || reasoning);
     providerLabel = `${provider === "nvidia" ? "NVIDIA Nemotron" : "Groq LLaMA"} · ${model}`;
-  } catch {
-    // keep defaults
+  } catch (err) {
+    console.error("[Moderator] LLM call failed:", err);
+    reasoning = `Moderator error: ${(err as Error).message}`;
   }
 
   const maxVotes = Math.max(...Object.values(tally));
