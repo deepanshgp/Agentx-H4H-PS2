@@ -112,6 +112,38 @@ export interface DebateSession {
   status: "pending" | "debating" | "complete" | "error";
 }
 
+// ─── Robust JSON parser ───────────────────────────────────────────────────────
+
+function safeParseJSON(text: string, role: DebateAgentRole): Record<string, unknown> {
+  // Strip markdown code fences
+  let cleaned = text.replace(/```(?:json)?\s*/gi, "").replace(/```/g, "").trim();
+
+  // Find the first {
+  const start = cleaned.indexOf("{");
+  if (start === -1) throw new Error(`No JSON found in ${role} response`);
+  cleaned = cleaned.slice(start);
+
+  // Match the closing brace using depth counting
+  let depth = 0;
+  let end = -1;
+  for (let i = 0; i < cleaned.length; i++) {
+    if (cleaned[i] === "{") depth++;
+    else if (cleaned[i] === "}") { depth--; if (depth === 0) { end = i; break; } }
+  }
+
+  const jsonStr = end !== -1 ? cleaned.slice(0, end + 1) : cleaned + "}";
+
+  try {
+    return JSON.parse(jsonStr) as Record<string, unknown>;
+  } catch {
+    // Remove trailing commas and pipe-style schema hints before retrying
+    const sanitised = jsonStr
+      .replace(/,\s*([}\]])/g, "$1")
+      .replace(/"[^"]*"\|"[^"]*"/g, '"hold"');
+    return JSON.parse(sanitised) as Record<string, unknown>;
+  }
+}
+
 // ─── Storage ──────────────────────────────────────────────────────────────────
 
 const DEBATE_KEY = "agentDebateHistory";
@@ -173,8 +205,16 @@ function buildAgentUserPrompt(
     `Current Price: ₹${currentPrice.toLocaleString("en-IN")}\n` +
     `Portfolio Risk Level: ${riskLevel}\n\n` +
     `Market Context & News:\n${newsSummary}\n\n` +
-    `Respond with this exact JSON:\n` +
-    `{"vote":"buy"|"sell"|"hold","confidence":<0-100>,"argument":"<2-3 sentence argument from your perspective>","keyPoints":["<point 1>","<point 2>","<point 3>"]}`
+    `You MUST respond with ONLY a JSON object in this exact format (choose ONE word for vote):\n` +
+    `{\n` +
+    `  "vote": "buy",\n` +
+    `  "confidence": 75,\n` +
+    `  "argument": "Your 2-3 sentence argument here.",\n` +
+    `  "keyPoints": ["First key point.", "Second key point.", "Third key point."]\n` +
+    `}\n\n` +
+    `The "vote" field must be exactly one of these three words: buy, sell, or hold.\n` +
+    `The "confidence" field must be a number between 0 and 100.\n` +
+    `No other text. No explanation. Just the JSON object.`
   );
 }
 
@@ -197,9 +237,16 @@ function buildModeratorUserPrompt(
     `Portfolio Risk Level: ${riskLevel}\n\n` +
     `=== DEBATE TRANSCRIPT ===\n${summary}\n\n` +
     `=== YOUR TASK ===\n` +
-    `Review all arguments. Determine the final action.\n\n` +
-    `Respond with this exact JSON:\n` +
-    `{"finalAction":"buy"|"sell"|"hold","finalConfidence":<0-100>,"reasoning":"<3-4 sentence synthesis explaining why this side won the debate and what factors were most decisive>"}`
+    `Review all arguments above and determine the final trading action.\n\n` +
+    `You MUST respond with ONLY a JSON object in this exact format:\n` +
+    `{\n` +
+    `  "finalAction": "buy",\n` +
+    `  "finalConfidence": 75,\n` +
+    `  "reasoning": "Your 3-4 sentence synthesis here explaining which arguments won and why."\n` +
+    `}\n\n` +
+    `The "finalAction" field must be exactly one of these three words: buy, sell, or hold.\n` +
+    `The "finalConfidence" field must be a number between 0 and 100.\n` +
+    `No other text. No explanation outside the JSON. Just the JSON object.`
   );
 }
 
@@ -218,24 +265,29 @@ async function runSingleAgent(
     bull: 0.7, bear: 0.6, risk: 0.3, quant: 0.3, moderator: 0.2,
   };
 
+  // Reasoning models need more tokens — bump all agents to 2000
+  const maxTokens = 2000;
+
   try {
     const { text, provider, model } = await callLLM({
       systemPrompt: buildAgentSystemPrompt(role),
       userPrompt: buildAgentUserPrompt(role, assetName, assetType, currentPrice, newsSummary, riskLevel),
       temperature: temperatureMap[role] ?? 0.4,
-      maxTokens: 600,
+      maxTokens,
     });
 
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("No JSON in response");
-    const parsed = JSON.parse(match[0]);
+    // Robust JSON extraction — handle markdown fences, prose wrapping, truncation
+    const parsed = safeParseJSON(text, role);
 
     return {
       role,
-      vote: (["buy", "sell", "hold"].includes(parsed.vote) ? parsed.vote : "hold") as TradeAction,
+      vote: (["buy", "sell", "hold"].includes(String(parsed.vote))
+        ? String(parsed.vote) : "hold") as TradeAction,
       confidence: Math.min(100, Math.max(0, Number(parsed.confidence) || 50)),
-      argument: parsed.argument || "No argument provided.",
-      keyPoints: Array.isArray(parsed.keyPoints) ? parsed.keyPoints.slice(0, 3) : [],
+      argument: String(parsed.argument || "No argument provided."),
+      keyPoints: Array.isArray(parsed.keyPoints)
+        ? (parsed.keyPoints as unknown[]).slice(0, 3).map(String)
+        : [],
       timestamp: Date.now(),
       llmProvider: `${provider === "nvidia" ? "NVIDIA Nemotron" : "Groq LLaMA"} · ${model}`,
     };
@@ -275,15 +327,14 @@ async function runModerator(
       systemPrompt: buildAgentSystemPrompt("moderator"),
       userPrompt: buildModeratorUserPrompt(assetName, assetType, currentPrice, riskLevel, args),
       temperature: 0.2,
-      maxTokens: 700,
+      maxTokens: 2000,
     });
 
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("No JSON");
-    const parsed = JSON.parse(match[0]);
-    finalAction = (["buy", "sell", "hold"].includes(parsed.finalAction) ? parsed.finalAction : "hold") as TradeAction;
+    const parsed = safeParseJSON(text, "moderator");
+    finalAction = (["buy", "sell", "hold"].includes(String(parsed.finalAction))
+      ? String(parsed.finalAction) : "hold") as TradeAction;
     finalConfidence = Math.min(100, Math.max(0, Number(parsed.finalConfidence) || 50));
-    reasoning = parsed.reasoning || reasoning;
+    reasoning = String(parsed.reasoning || reasoning);
     providerLabel = `${provider === "nvidia" ? "NVIDIA Nemotron" : "Groq LLaMA"} · ${model}`;
   } catch {
     // keep defaults
