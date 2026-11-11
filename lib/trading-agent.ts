@@ -164,9 +164,15 @@ async function analyzeWithLLM(
     `Risk Profile: ${riskLevel} — ${riskContext}\n` +
     noNewsInstruction + `\n\n` +
     `Market Context & News:\n${newsSummary}\n\n` +
-    `Decide: BUY, SELL, or HOLD.\n\n` +
-    `Respond with exactly this JSON:\n` +
-    `{"action":"buy"|"sell"|"hold","confidence":<0-100>,"reasoning":"<2-3 sentences explaining the specific catalysts, signals, or reasons.>"}`;
+    `Decide the trading action and respond with ONLY a JSON object in this exact format:\n` +
+    `{\n` +
+    `  "action": "buy",\n` +
+    `  "confidence": 75,\n` +
+    `  "reasoning": "Your 2-3 sentence explanation here."\n` +
+    `}\n\n` +
+    `The "action" field must be exactly one of these words: buy, sell, or hold.\n` +
+    `The "confidence" field must be a number between 0 and 100.\n` +
+    `No other text outside the JSON object.`;
 
   try {
     const { text, provider, model } = await callLLM({

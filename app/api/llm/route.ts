@@ -28,11 +28,38 @@ const GROQ_KEY =
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function extractJSON(text: string): string {
-  const match = text.match(/\{[\s\S]*\}/);
-  if (match) return match[0];
-  const trimmed = text.trim();
-  if (trimmed.startsWith("{")) return trimmed;
-  throw new Error("No JSON object found in LLM response");
+  // Strip markdown code fences
+  let cleaned = text.replace(/```(?:json)?\s*/gi, "").replace(/```/g, "").trim();
+
+  // Find the outermost { ... } using brace matching
+  const start = cleaned.indexOf("{");
+  if (start === -1) throw new Error("No JSON object found in LLM response");
+  cleaned = cleaned.slice(start);
+
+  let depth = 0;
+  let end = -1;
+  for (let i = 0; i < cleaned.length; i++) {
+    if (cleaned[i] === "{") depth++;
+    else if (cleaned[i] === "}") {
+      depth--;
+      if (depth === 0) { end = i; break; }
+    }
+  }
+
+  // If truncated, close the object and try anyway
+  const jsonStr = end !== -1 ? cleaned.slice(0, end + 1) : cleaned + "}";
+
+  try {
+    JSON.parse(jsonStr); // validate
+    return jsonStr;
+  } catch {
+    // Remove trailing commas and pipe-style schema hints
+    const sanitised = jsonStr
+      .replace(/,\s*([}\]])/g, "$1")
+      .replace(/"[^"]*"\|"[^"]*"/g, '"hold"');
+    JSON.parse(sanitised); // throws if still bad
+    return sanitised;
+  }
 }
 
 async function callNvidia(
