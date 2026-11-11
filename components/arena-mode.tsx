@@ -246,7 +246,7 @@ function ArenaSetup({
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="w-[var(--radix-select-trigger-width)]">
                     <SelectItem value="conservative">
                       <span className="flex items-center gap-2">
                         <Minus className="h-3.5 w-3.5 text-blue-500" /> Conservative

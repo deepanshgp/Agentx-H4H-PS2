@@ -12,7 +12,7 @@ interface PriceData {
 
 interface AssetPriceChartProps {
   assetId: string
-  assetType: "stock" | "crypto" | "insurance"
+  assetType: "stock" | "crypto"
 }
 
 export function AssetPriceChart({ assetId, assetType }: AssetPriceChartProps) {

@@ -1,68 +1,56 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { User, LogOut, Bot } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { LogOut, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useRouter } from "next/navigation"
+
+const navItems = [
+  { name: "Portfolio", href: "/dashboard" },
+  { name: "Stocks", href: "/dashboard/stocks" },
+  { name: "Crypto", href: "/dashboard/crypto" },
+  { name: "Auto Trader", href: "/dashboard/auto-trader" },
+  { name: "Journal", href: "/dashboard/journal" },
+]
 
 export default function DashboardNav() {
   const pathname = usePathname()
   const router = useRouter()
 
-  const navItems = [
-    { name: "Portfolio", href: "/dashboard" },
-    { name: "Stocks", href: "/dashboard/stocks" },
-    { name: "Crypto", href: "/dashboard/crypto" },
-    { name: "Insurance", href: "/dashboard/insurance" },
-    { name: "Predictor", href: "/dashboard/predictor" },
-    { name: "Auto Trader", href: "/dashboard#auto-trader" },
-    { name: "Journal", href: "/dashboard#journal" },
-  ]
-
-  const handleLogout = () => {
-    router.push("/")
-  }
-
   return (
-    <header className="bg-white border-b border-primary/10 sticky top-0 z-10">
-      <div className="container mx-auto px-4">
-        <div className="flex h-16 items-center justify-between">
-          <div className="flex items-center">
-            <h1 className="text-xl font-bold text-dark mr-10">EzFunds</h1>
-            <nav className="flex space-x-4">
-              {navItems.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                    pathname === item.href 
-                      ? "bg-primary/10 text-primary" 
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  {item.name}
-                </Link>
-              ))}
-            </nav>
-          </div>
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <div className="h-8 w-8 rounded-full bg-accent/10 flex items-center justify-center">
-                <User className="h-4 w-4 text-accent" />
-              </div>
-              <span className="text-sm font-medium text-dark">Areion</span>
-            </div>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={handleLogout}
-              className="text-gray-700 hover:text-secondary hover:bg-secondary/10"
-            >
-              <LogOut className="h-5 w-5" />
-              <span className="sr-only">Logout</span>
-            </Button>
-          </div>
+    <header className="sticky top-0 z-20 border-b bg-white/95 backdrop-blur">
+      <div className="mx-auto flex min-h-14 max-w-7xl flex-wrap items-center justify-between gap-x-5 px-4 sm:px-6">
+        <Link href="/dashboard" className="shrink-0 text-lg font-semibold tracking-tight text-foreground">
+          EzFunds
+        </Link>
+        <nav aria-label="Main navigation" className="order-3 -mx-4 flex w-[calc(100%+2rem)] gap-1 overflow-x-auto border-t px-4 py-2 sm:order-none sm:mx-0 sm:w-auto sm:flex-1 sm:border-0 sm:px-0 sm:py-0">
+          {navItems.map((item) => {
+            const active = item.href === "/dashboard"
+                ? pathname === item.href
+                : pathname.startsWith(item.href)
+
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                {item.name}
+              </Link>
+            )
+          })}
+        </nav>
+        <div className="ml-auto flex items-center gap-2 sm:ml-0">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground" aria-label="Signed in as Areion">
+            <User className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <span className="hidden text-sm font-medium sm:inline">Areion</span>
+          <Button variant="ghost" size="icon" onClick={() => router.push("/")} aria-label="Log out" className="h-9 w-9 text-muted-foreground">
+            <LogOut className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </header>

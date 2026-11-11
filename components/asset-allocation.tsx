@@ -10,7 +10,6 @@ export default function AssetAllocation() {
   const [allocationData, setAllocationData] = useState([
     { name: "Stocks", value: 0 },
     { name: "Crypto", value: 0 },
-    { name: "Insurance", value: 0 },
   ])
 
   useEffect(() => {
@@ -33,7 +32,6 @@ export default function AssetAllocation() {
     setAllocationData([
       { name: "Stocks", value: allocation.stocks },
       { name: "Crypto", value: allocation.crypto },
-      { name: "Insurance", value: allocation.insurance },
     ])
   }
 

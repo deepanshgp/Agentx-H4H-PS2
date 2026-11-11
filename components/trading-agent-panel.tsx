@@ -321,23 +321,26 @@ export default function TradingAgentPanel() {
                     value={config.riskLevel}
                     onValueChange={(v) => setConfig((p) => ({ ...p, riskLevel: v as RiskLevel }))}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="min-w-0 bg-card">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]">
                       <SelectItem value="conservative">
-                        <span className="flex items-center gap-2">
-                          <Minus className="h-3.5 w-3.5 text-blue-500" /> Conservative — fewer, safer trades
+                        <span className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap leading-5">
+                          <Minus className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+                          <span className="truncate">Conservative — fewer, safer trades</span>
                         </span>
                       </SelectItem>
                       <SelectItem value="moderate">
-                        <span className="flex items-center gap-2">
-                          <Activity className="h-3.5 w-3.5 text-yellow-500" /> Moderate — balanced approach
+                        <span className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap leading-5">
+                          <Activity className="h-3.5 w-3.5 shrink-0 text-yellow-500" />
+                          <span className="truncate">Moderate — balanced approach</span>
                         </span>
                       </SelectItem>
                       <SelectItem value="aggressive">
-                        <span className="flex items-center gap-2">
-                          <Zap className="h-3.5 w-3.5 text-red-500" /> Aggressive — maximum activity
+                        <span className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap leading-5">
+                          <Zap className="h-3.5 w-3.5 shrink-0 text-red-500" />
+                          <span className="truncate">Aggressive — maximum activity</span>
                         </span>
                       </SelectItem>
                     </SelectContent>
