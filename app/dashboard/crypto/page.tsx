@@ -13,7 +13,6 @@ import AssetSellModal from "@/components/asset-sell-modal"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import Web3WalletConnect from "@/components/web3-wallet-connect"
 import { MarketBestPerformers } from "@/components/market-best-performers"
-import TopTraders from "@/components/top-traders"
 
 export default function CryptoPage() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -140,6 +139,10 @@ export default function CryptoPage() {
 
       <MarketBestPerformers assets={marketCrypto} onBuy={handleBuy} />
 
+      <div className="flex justify-end">
+        <Web3WalletConnect />
+      </div>
+
       <div className="flex items-center space-x-2">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -153,8 +156,7 @@ export default function CryptoPage() {
         </div>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-6">
-        <div className="w-full md:w-3/4">
+      <div className="w-full">
           <Tabs defaultValue="market" className="w-full">
             <TabsList className="grid w-full max-w-md grid-cols-2 bg-gray-100 p-1 rounded-lg">
               <TabsTrigger 
@@ -326,12 +328,6 @@ export default function CryptoPage() {
               </Card>
             </TabsContent>
           </Tabs>
-        </div>
-        
-        <div className="w-full md:w-1/4 space-y-6">
-          <Web3WalletConnect />
-          <TopTraders assetType="crypto" />
-        </div>
       </div>
 
       {showBuyModal && selectedAsset && (
