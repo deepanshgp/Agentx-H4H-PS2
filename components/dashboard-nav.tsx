@@ -18,6 +18,7 @@ export default function DashboardNav() {
     { name: "Predictor", href: "/dashboard/predictor" },
     { name: "Auto Trader", href: "/dashboard#auto-trader" },
     { name: "RL Agent", href: "/dashboard/rl-agent" },
+    { name: "Chart", href: "/dashboard/charts" },
     { name: "Journal", href: "/dashboard#journal" },
   ]
 
