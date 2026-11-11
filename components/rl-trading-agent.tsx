@@ -6,6 +6,7 @@ import {
   Legend,
   Line,
   LineChart,
+  ReferenceDot,
   ResponsiveContainer,
   Tooltip as RTooltip,
   XAxis,
@@ -141,6 +142,7 @@ export default function RLTradingAgent() {
   const demoSeries = useRef<Record<string, number[]>>({});
   const demoRng = useRef(createRng(Date.now() % 100000));
   const [liveNotice, setLiveNotice] = useState<string | null>(null);
+  const [chartAsset, setChartAsset] = useState<string>("");
 
   // memory
   const [events, setEvents] = useState<LearningEvent[]>([]);
@@ -902,6 +904,166 @@ export default function RLTradingAgent() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* ── Live Charts ── */}
+              {(() => {
+                const liveState = liveRef.current;
+                const assetIds = liveState ? Object.keys(liveState.assets) : [];
+                const activeId = chartAsset && assetIds.includes(chartAsset) ? chartAsset : assetIds[0] ?? "";
+                const slot = liveState?.assets[activeId];
+                const fmt = (ts: number) => new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+                if (!liveState || assetIds.length === 0) return null;
+
+                const priceData = (slot?.priceHistory ?? []).map((p) => ({
+                  time: fmt(p.ts),
+                  ts: p.ts,
+                  price: p.price,
+                  action: p.action,
+                }));
+
+                const equityData = (slot?.equityHistory ?? []).map((e) => ({
+                  time: fmt(e.ts),
+                  ts: e.ts,
+                  equity: Math.round(e.equity),
+                }));
+
+                const buys = priceData.filter((p) => p.action === "BUY");
+                const sells = priceData.filter((p) => p.action === "SELL");
+
+                return (
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <CardTitle className="text-base">Live charts</CardTitle>
+                          <CardDescription>Price ticks with trade markers · paper equity curve</CardDescription>
+                        </div>
+                        {assetIds.length > 1 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {assetIds.map((id) => (
+                              <button
+                                key={id}
+                                onClick={() => setChartAsset(id)}
+                                className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                                  id === activeId
+                                    ? "bg-indigo-600 text-white border-indigo-600"
+                                    : "bg-white text-gray-700 hover:bg-gray-100"
+                                }`}
+                              >
+                                {liveState.assets[id].name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {priceData.length < 2 ? (
+                        <p className="text-sm text-muted-foreground text-center py-8">
+                          Waiting for price ticks — run a few cycles to populate the chart.
+                        </p>
+                      ) : (
+                        <>
+                          {/* Price chart */}
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wide">
+                              Price — {slot?.name}
+                            </p>
+                            <div className="h-52">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={priceData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                  <XAxis dataKey="time" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+                                  <YAxis
+                                    domain={["auto", "auto"]}
+                                    tick={{ fontSize: 10 }}
+                                    tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
+                                    width={56}
+                                  />
+                                  <RTooltip
+                                    formatter={(v: number) => [inr(v), "Price"]}
+                                    labelFormatter={(l) => `Time: ${l}`}
+                                  />
+                                  <Line
+                                    isAnimationActive={false}
+                                    type="monotone"
+                                    dataKey="price"
+                                    stroke="#6366f1"
+                                    dot={false}
+                                    strokeWidth={1.5}
+                                  />
+                                  {buys.map((b) => (
+                                    <ReferenceDot
+                                      key={`buy-${b.ts}`}
+                                      x={b.time}
+                                      y={b.price}
+                                      r={5}
+                                      fill="#16a34a"
+                                      stroke="#fff"
+                                      strokeWidth={1.5}
+                                    />
+                                  ))}
+                                  {sells.map((s) => (
+                                    <ReferenceDot
+                                      key={`sell-${s.ts}`}
+                                      x={s.time}
+                                      y={s.price}
+                                      r={5}
+                                      fill="#dc2626"
+                                      stroke="#fff"
+                                      strokeWidth={1.5}
+                                    />
+                                  ))}
+                                </LineChart>
+                              </ResponsiveContainer>
+                            </div>
+                            <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-green-600" /> BUY ({buys.length})</span>
+                              <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-red-600" /> SELL ({sells.length})</span>
+                            </div>
+                          </div>
+
+                          {/* Equity curve */}
+                          {equityData.length >= 2 && (
+                            <div>
+                              <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wide">
+                                Paper equity — {slot?.name}
+                              </p>
+                              <div className="h-44">
+                                <ResponsiveContainer width="100%" height="100%">
+                                  <LineChart data={equityData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                    <XAxis dataKey="time" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+                                    <YAxis
+                                      domain={["auto", "auto"]}
+                                      tick={{ fontSize: 10 }}
+                                      tickFormatter={(v) => `₹${Math.round(v / 1000)}k`}
+                                      width={56}
+                                    />
+                                    <RTooltip
+                                      formatter={(v: number) => [inr(v), "Equity"]}
+                                      labelFormatter={(l) => `Time: ${l}`}
+                                    />
+                                    <Line
+                                      isAnimationActive={false}
+                                      type="monotone"
+                                      dataKey="equity"
+                                      stroke="#16a34a"
+                                      dot={false}
+                                      strokeWidth={2}
+                                    />
+                                  </LineChart>
+                                </ResponsiveContainer>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })()}
             </div>
           </div>
         </TabsContent>

@@ -36,6 +36,17 @@ export interface PendingDecision {
   ts: number;
 }
 
+export interface PricePoint {
+  ts: number;
+  price: number;
+  action?: "BUY" | "SELL";
+}
+
+export interface EquityPoint {
+  ts: number;
+  equity: number;
+}
+
 export interface LiveAssetState {
   assetId: string;
   name: string;
@@ -46,6 +57,10 @@ export interface LiveAssetState {
   lastPrice: number;
   lastAction: number | null;
   lastProbs: number[] | null;
+  /** Recent price ticks with optional trade markers (capped at 200 points). */
+  priceHistory: PricePoint[];
+  /** Equity at each cycle (capped at 200 points). */
+  equityHistory: EquityPoint[];
 }
 
 export interface LiveState {
@@ -158,6 +173,8 @@ export function runLiveCycle(
         lastPrice: price,
         lastAction: null,
         lastProbs: null,
+        priceHistory: [],
+        equityHistory: [],
       };
       state.assets[asset.id] = st;
     }
@@ -213,6 +230,13 @@ export function runLiveCycle(
     st.lastPrice = price;
     st.lastAction = action;
     st.lastProbs = probs;
+
+    // ── history (capped at 200 points each) ──────────────────────────────────
+    const HIST_CAP = 200;
+    const pricePt: PricePoint = { ts: now, price };
+    if (trade) pricePt.action = trade.action as "BUY" | "SELL";
+    st.priceHistory = [...st.priceHistory, pricePt].slice(-HIST_CAP);
+    st.equityHistory = [...st.equityHistory, { ts: now, equity: equityAt(st.account, price) }].slice(-HIST_CAP);
 
     const decision: LiveDecision = {
       assetId: asset.id,
