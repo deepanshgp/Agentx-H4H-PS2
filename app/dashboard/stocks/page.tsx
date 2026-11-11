@@ -12,7 +12,6 @@ import AssetSellModal from "@/components/asset-sell-modal"
 import INRBalanceModal from "@/components/inr-balance-modal"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { MarketBestPerformers } from "@/components/market-best-performers"
-import TopTraders from "@/components/top-traders"
 
 export default function StocksPage() {
   const [marketStocks, setMarketStocks] = useState<any[]>([])
@@ -183,8 +182,7 @@ export default function StocksPage() {
         </div>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-6">
-        <div className="w-full md:w-3/4">
+      <div className="w-full">
           <Tabs defaultValue="market" className="w-full">
             <TabsList className="grid w-full max-w-md grid-cols-2 bg-gray-100 p-1 rounded-lg">
               <TabsTrigger 
@@ -355,11 +353,6 @@ export default function StocksPage() {
               </Card>
             </TabsContent>
           </Tabs>
-        </div>
-        
-        <div className="w-full md:w-1/4">
-          <TopTraders assetType="stock" />
-        </div>
       </div>
 
       {showBuyModal && selectedAsset && (
