@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
+import { Slider, SliderNumberInput } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -34,9 +34,6 @@ import {
 } from "@/lib/trading-agent";
 import { API_KEYS } from "@/config/api-keys";
 import TradeJournal from "@/components/trade-journal";
-import ArenaMode from "@/components/arena-mode";
-import AgentDebatePanel from "@/components/agent-debate-panel";
-import RLTradingAgent from "@/components/rl-trading-agent";
 import {
   Bot,
   Play,
@@ -53,9 +50,6 @@ import {
   Newspaper,
   Key,
   BookOpen,
-  Swords,
-  Scale,
-  Brain,
 } from "lucide-react";
 
 // ─── Watched-asset catalogue ───────────────────────────────────────────────────
@@ -143,8 +137,7 @@ function StatusBadge({ status }: { status: AgentStatus }) {
 }
 
 // ─── Tab type ─────────────────────────────────────────────────────────────────
-type TabId = "config" | "log" | "journal" | "debate" | "arena" | "rl";
-type AgentMode = "rule-based" | "rl";
+type TabId = "config" | "log" | "journal";
 
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function TradingAgentPanel() {
@@ -153,7 +146,6 @@ export default function TradingAgentPanel() {
   const [status, setStatus] = useState<AgentStatus>("idle");
   const [log, setLog] = useState<AgentLogEntry[]>([]);
   const [activeTab, setActiveTab] = useState<TabId>("config");
-  const [agentMode, setAgentMode] = useState<AgentMode>("rule-based");
 
   // Hydrate from localStorage on mount
   useEffect(() => {
@@ -235,15 +227,6 @@ export default function TradingAgentPanel() {
       ),
     },
     {
-      id: "rl",
-      label: (
-        <span className="flex items-center gap-1.5">
-          <Brain className="h-3.5 w-3.5 text-blue-600" />RL Agent
-          <span className="bg-gradient-to-r from-blue-500 to-purple-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none">AI</span>
-        </span>
-      ),
-    },
-    {
       id: "journal",
       label: (
         <span className="flex items-center gap-1.5">
@@ -253,19 +236,6 @@ export default function TradingAgentPanel() {
           )}
         </span>
       ),
-    },
-    {
-      id: "debate",
-      label: (
-        <span className="flex items-center gap-1.5">
-          <Scale className="h-3.5 w-3.5 text-purple-600" />Debate
-          <span className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none">NEW</span>
-        </span>
-      ),
-    },
-    {
-      id: "arena",
-      label: <span className="flex items-center gap-1.5"><Swords className="h-3.5 w-3.5 text-purple-600" />Arena</span>,
     },
   ];
 
@@ -392,9 +362,9 @@ export default function TradingAgentPanel() {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <Label className="text-sm">Max Trade Amount</Label>
-                    <span className="text-sm font-medium text-purple-700">
-                      ₹{config.maxTradeAmountINR.toLocaleString("en-IN")}
-                    </span>
+                    <div className="flex items-center gap-1 text-sm font-medium text-purple-700">
+                      ₹<SliderNumberInput aria-label="Maximum trade amount in rupees" value={config.maxTradeAmountINR} min={500} max={50000} step={500} onValueChange={(v) => setConfig((p) => ({ ...p, maxTradeAmountINR: v }))} />
+                    </div>
                   </div>
                   <Slider
                     min={500}
@@ -412,7 +382,9 @@ export default function TradingAgentPanel() {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <Label className="text-sm">Min Confidence Threshold</Label>
-                    <span className="text-sm font-medium text-purple-700">{config.minConfidenceThreshold}%</span>
+                    <div className="flex items-center gap-1 text-sm font-medium text-purple-700">
+                      <SliderNumberInput aria-label="Minimum confidence threshold percentage" value={config.minConfidenceThreshold} min={40} max={95} step={5} onValueChange={(v) => setConfig((p) => ({ ...p, minConfidenceThreshold: v }))} />%
+                    </div>
                   </div>
                   <Slider
                     min={40}
@@ -438,7 +410,9 @@ export default function TradingAgentPanel() {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <Label className="text-sm">Stop-Loss</Label>
-                    <span className="text-sm font-medium text-red-600">-{config.stopLossPercent}%</span>
+                    <div className="flex items-center gap-1 text-sm font-medium text-red-600">
+                      -<SliderNumberInput aria-label="Stop-loss percentage" value={config.stopLossPercent} min={2} max={20} step={1} onValueChange={(v) => setConfig((p) => ({ ...p, stopLossPercent: v }))} />%
+                    </div>
                   </div>
                   <Slider
                     min={2}
@@ -452,7 +426,9 @@ export default function TradingAgentPanel() {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <Label className="text-sm">Take-Profit</Label>
-                    <span className="text-sm font-medium text-green-600">+{config.takeProfitPercent}%</span>
+                    <div className="flex items-center gap-1 text-sm font-medium text-green-600">
+                      +<SliderNumberInput aria-label="Take-profit percentage" value={config.takeProfitPercent} min={5} max={50} step={5} onValueChange={(v) => setConfig((p) => ({ ...p, takeProfitPercent: v }))} />%
+                    </div>
                   </div>
                   <Slider
                     min={5}
@@ -475,7 +451,9 @@ export default function TradingAgentPanel() {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <Label className="text-sm">Run Every</Label>
-                    <span className="text-sm font-medium text-purple-700">{config.intervalMinutes} min</span>
+                    <div className="flex items-center gap-1 text-sm font-medium text-purple-700">
+                      <SliderNumberInput aria-label="Run interval in minutes" value={config.intervalMinutes} min={1} max={60} step={1} onValueChange={(v) => setConfig((p) => ({ ...p, intervalMinutes: v }))} /> min
+                    </div>
                   </div>
                   <Slider
                     min={1}
@@ -672,26 +650,11 @@ export default function TradingAgentPanel() {
       )}
 
       {/* ══════════════════════════════════════════════════
-          RL AGENT TAB
-      ══════════════════════════════════════════════════ */}
-      {activeTab === "rl" && <RLTradingAgent />}
-
-      {/* ══════════════════════════════════════════════════
           JOURNAL TAB
       ══════════════════════════════════════════════════ */}
       {activeTab === "journal" && (
         <TradeJournal onNavigateToConfig={() => setActiveTab("config")} />
       )}
-
-      {/* ══════════════════════════════════════════════════
-          DEBATE TAB
-      ══════════════════════════════════════════════════ */}
-      {activeTab === "debate" && <AgentDebatePanel />}
-
-      {/* ══════════════════════════════════════════════════
-          ARENA TAB
-      ══════════════════════════════════════════════════ */}
-      {activeTab === "arena" && <ArenaMode />}
 
       {/* ── Disclaimer ── */}
       <div className="flex gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">

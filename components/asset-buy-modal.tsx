@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
-import { AssetPriceChart } from "@/components/asset-price-chart"
+import MarketPriceChart from "@/components/market-price-chart"
 import { saveTransaction } from "@/lib/portfolio-tracker"
 
 interface AssetBuyModalProps {
@@ -111,18 +111,26 @@ export default function AssetBuyModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[560px]">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[560px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShoppingCart className="h-4 w-4 text-action-buy" />
             Buy {asset.name}
           </DialogTitle>
           <DialogDescription>
-            Current price: ₹{asset.price.toLocaleString("en-IN")}
+            Review the current price and historical chart before buying.
           </DialogDescription>
         </DialogHeader>
 
-        <AssetPriceChart assetId={asset.id} assetType={assetType} />
+        <MarketPriceChart
+          asset={{
+            id: String(assetType === "stock" ? asset.ticker ?? asset.id : asset.id),
+            name: asset.name,
+            ticker: asset.ticker ?? asset.symbol ?? "",
+          }}
+          assetType={assetType}
+          currentPrice={asset.price}
+        />
 
         <div className="grid gap-4 py-2">
           <div className="space-y-1.5">
