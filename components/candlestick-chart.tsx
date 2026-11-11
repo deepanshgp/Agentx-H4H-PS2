@@ -10,6 +10,7 @@
  *   • Animated entry — candles fade in on mount
  *   • Responsive via viewBox scaling
  *   • Hover tooltip showing OHLC + date
+ *   • Toggle between daily and monthly views
  */
 
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -63,8 +64,82 @@ function formatPrice(v: number): string {
   return `₹${v.toFixed(2)}`;
 }
 
-function formatDate(ts: number): string {
-  return new Date(ts).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "2-digit" });
+type Timeframe = "1m" | "5m" | "15m" | "1h" | "daily" | "monthly";
+
+function formatDate(ts: number, timeframe: Timeframe): string {
+  const date = new Date(ts);
+  
+  switch (timeframe) {
+    case "1m":
+    case "5m":
+    case "15m":
+      return date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+    case "1h":
+      return date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+    case "daily":
+      return date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+    case "monthly":
+      return date.toLocaleDateString("en-IN", { month: "short", year: "2-digit" });
+    default:
+      return date.toLocaleDateString("en-IN");
+  }
+}
+
+// Aggregate candles by time interval
+function aggregateCandles(candles: Candle[], timeframe: Timeframe): Candle[] {
+  if (candles.length === 0) return [];
+  
+  let intervalMs: number;
+  let getKey: (date: Date) => string;
+  
+  switch (timeframe) {
+    case "1m":
+      intervalMs = 60 * 1000;
+      getKey = (date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}-${date.getHours()}-${date.getMinutes()}`;
+      break;
+    case "5m":
+      intervalMs = 5 * 60 * 1000;
+      getKey = (date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}-${date.getHours()}-${Math.floor(date.getMinutes() / 5) * 5}`;
+      break;
+    case "15m":
+      intervalMs = 15 * 60 * 1000;
+      getKey = (date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}-${date.getHours()}-${Math.floor(date.getMinutes() / 15) * 15}`;
+      break;
+    case "1h":
+      intervalMs = 60 * 60 * 1000;
+      getKey = (date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}-${date.getHours()}`;
+      break;
+    case "daily":
+      return candles; // No aggregation needed
+    case "monthly":
+      getKey = (date) => `${date.getFullYear()}-${date.getMonth()}`;
+      break;
+    default:
+      return candles;
+  }
+  
+  const intervalMap = new Map<string, Candle[]>();
+  
+  candles.forEach(candle => {
+    const date = new Date(candle.ts);
+    const key = getKey(date);
+    
+    if (!intervalMap.has(key)) {
+      intervalMap.set(key, []);
+    }
+    intervalMap.get(key)!.push(candle);
+  });
+  
+  return Array.from(intervalMap.values()).map(intervalCandles => {
+    const sorted = intervalCandles.sort((a, b) => a.ts - b.ts);
+    const open = sorted[0].open;
+    const close = sorted[sorted.length - 1].close;
+    const high = Math.max(...sorted.map(c => c.high));
+    const low = Math.min(...sorted.map(c => c.low));
+    const ts = sorted[0].ts;
+    
+    return { ts, open, high, low, close };
+  }).sort((a, b) => a.ts - b.ts);
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -85,11 +160,17 @@ export default function CandlestickChart({
   const [tooltip, setTooltip] = useState<{
     x: number; y: number; candle: Candle;
   } | null>(null);
+  const [timeframe, setTimeframe] = useState<Timeframe>("daily");
+
+  // Process candles based on timeframe
+  const processedCandles = useMemo(() => {
+    return aggregateCandles(candles, timeframe);
+  }, [candles, timeframe]);
 
   // Slice to the most recent N candles
   const visible = useMemo(
-    () => candles.slice(-maxCandles),
-    [candles, maxCandles]
+    () => processedCandles.slice(-maxCandles),
+    [processedCandles, maxCandles]
   );
 
   const closes = useMemo(() => visible.map((c) => c.close), [visible]);
@@ -144,10 +225,10 @@ export default function CandlestickChart({
     const step = Math.max(1, Math.floor(n / 6));
     const ticks: { i: number; label: string }[] = [];
     for (let i = 0; i < n; i += step) {
-      ticks.push({ i, label: formatDate(visible[i].ts) });
+      ticks.push({ i, label: formatDate(visible[i].ts, timeframe) });
     }
     return ticks;
-  }, [n, visible]);
+  }, [n, visible, timeframe]);
 
   // ── MA line path ─────────────────────────────────────────────────────────
 
@@ -342,7 +423,7 @@ export default function CandlestickChart({
                 rx={6} strokeWidth={1}
               />
               <text x={tipX + 10} y={tipY + 18} fontSize={11} fill="#94a3b8">
-                {formatDate(candle.ts)}
+                {formatDate(candle.ts, timeframe)}
               </text>
               {[
                 ["O", candle.open],
@@ -369,29 +450,95 @@ export default function CandlestickChart({
       </svg>
 
       {/* ── Legend ── */}
-      <div className="flex items-center gap-4 px-4 py-2 text-xs" style={{ color: LABEL_CLR }}>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-sm" style={{ background: BULL }} />
-          Bullish
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-sm" style={{ background: BEAR }} />
-          Bearish
-        </span>
-        {maPeriod > 0 && (
+      <div className="flex items-center justify-between px-4 py-2 text-xs">
+        <div className="flex items-center gap-4" style={{ color: LABEL_CLR }}>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block w-5 h-0.5 rounded" style={{ background: MA_COLOR }} />
-            MA{maPeriod}
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ background: BULL }} />
+            Bullish
           </span>
-        )}
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-0 h-0 border-l-4 border-r-4 border-b-6 border-transparent" style={{ borderBottomColor: BULL }} />
-          BUY
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-0 h-0 border-l-4 border-r-4 border-t-6 border-transparent" style={{ borderTopColor: BEAR }} />
-          SELL
-        </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ background: BEAR }} />
+            Bearish
+          </span>
+          {maPeriod > 0 && (
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block w-5 h-0.5 rounded" style={{ background: MA_COLOR }} />
+              MA{maPeriod}
+            </span>
+          )}
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-0 h-0 border-l-4 border-r-4 border-b-6 border-transparent" style={{ borderBottomColor: BULL }} />
+            BUY
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-0 h-0 border-l-4 border-r-4 border-t-6 border-transparent" style={{ borderTopColor: BEAR }} />
+            SELL
+          </span>
+        </div>
+        
+        {/* Timeframe Toggle */}
+        <div className="flex items-center gap-1 bg-gray-800 rounded-lg p-1">
+          <button
+            onClick={() => setTimeframe("1m")}
+            className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+              timeframe === "1m" 
+                ? "bg-blue-600 text-white" 
+                : "text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            1m
+          </button>
+          <button
+            onClick={() => setTimeframe("5m")}
+            className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+              timeframe === "5m" 
+                ? "bg-blue-600 text-white" 
+                : "text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            5m
+          </button>
+          <button
+            onClick={() => setTimeframe("15m")}
+            className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+              timeframe === "15m" 
+                ? "bg-blue-600 text-white" 
+                : "text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            15m
+          </button>
+          <button
+            onClick={() => setTimeframe("1h")}
+            className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+              timeframe === "1h" 
+                ? "bg-blue-600 text-white" 
+                : "text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            1h
+          </button>
+          <button
+            onClick={() => setTimeframe("daily")}
+            className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+              timeframe === "daily" 
+                ? "bg-blue-600 text-white" 
+                : "text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            Daily
+          </button>
+          <button
+            onClick={() => setTimeframe("monthly")}
+            className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+              timeframe === "monthly" 
+                ? "bg-blue-600 text-white" 
+                : "text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            Monthly
+          </button>
+        </div>
       </div>
 
       <style>{`@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }`}</style>
