@@ -35,6 +35,7 @@ import {
 import { API_KEYS } from "@/config/api-keys";
 import TradeJournal from "@/components/trade-journal";
 import ArenaMode from "@/components/arena-mode";
+import AgentDebatePanel from "@/components/agent-debate-panel";
 import {
   Bot,
   Play,
@@ -52,6 +53,7 @@ import {
   Key,
   BookOpen,
   Swords,
+  Scale,
 } from "lucide-react";
 
 // ─── Watched-asset catalogue ───────────────────────────────────────────────────
@@ -127,8 +129,9 @@ function StatusBadge({ status }: { status: AgentStatus }) {
     running: { label: "Running", className: "bg-green-100 text-green-700 border-green-200 animate-pulse" },
     paused:  { label: "Paused",  className: "bg-yellow-100 text-yellow-700 border-yellow-200" },
     error:   { label: "Error",   className: "bg-red-100 text-red-700 border-red-200" },
+    halted:  { label: "Halted",  className: "bg-red-100 text-red-700 border-red-200" },
   };
-  const s = map[status];
+  const s = map[status] ?? map.idle;
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${s.className}`}>
       <span className={`h-1.5 w-1.5 rounded-full ${status === "running" ? "bg-green-500" : "bg-current"}`} />
@@ -137,13 +140,16 @@ function StatusBadge({ status }: { status: AgentStatus }) {
   );
 }
 
+// ─── Tab type ─────────────────────────────────────────────────────────────────
+type TabId = "config" | "log" | "journal" | "debate" | "arena";
+
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function TradingAgentPanel() {
   const { toast } = useToast();
   const [config, setConfig] = useState<AgentConfig>(DEFAULT_CONFIG);
   const [status, setStatus] = useState<AgentStatus>("idle");
   const [log, setLog] = useState<AgentLogEntry[]>([]);
-  const [activeTab, setActiveTab] = useState<"config" | "log" | "journal" | "arena">("config");
+  const [activeTab, setActiveTab] = useState<TabId>("config");
 
   // Hydrate from localStorage on mount
   useEffect(() => {
@@ -207,6 +213,49 @@ export default function TradingAgentPanel() {
   const buyCount   = log.filter((e) => e.type === "trade" && e.message.includes("BUY")).length;
   const sellCount  = log.filter((e) => e.type === "trade" && e.message.includes("SELL")).length;
 
+  // ─── Tab definitions ──────────────────────────────────────────────────────
+  const tabs: { id: TabId; label: React.ReactNode }[] = [
+    {
+      id: "config",
+      label: <span className="flex items-center gap-1.5"><Settings2 className="h-3.5 w-3.5" />Configure</span>,
+    },
+    {
+      id: "log",
+      label: (
+        <span className="flex items-center gap-1.5">
+          <Activity className="h-3.5 w-3.5" />Activity Log
+          {log.length > 0 && (
+            <span className="bg-purple-100 text-purple-700 text-[10px] font-semibold rounded-full px-1.5">{log.length}</span>
+          )}
+        </span>
+      ),
+    },
+    {
+      id: "journal",
+      label: (
+        <span className="flex items-center gap-1.5">
+          <BookOpen className="h-3.5 w-3.5 text-indigo-600" />Journal
+          {tradeCount > 0 && (
+            <span className="bg-indigo-100 text-indigo-700 text-[10px] font-semibold rounded-full px-1.5">{tradeCount}</span>
+          )}
+        </span>
+      ),
+    },
+    {
+      id: "debate",
+      label: (
+        <span className="flex items-center gap-1.5">
+          <Scale className="h-3.5 w-3.5 text-purple-600" />Debate
+          <span className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none">NEW</span>
+        </span>
+      ),
+    },
+    {
+      id: "arena",
+      label: <span className="flex items-center gap-1.5"><Swords className="h-3.5 w-3.5 text-purple-600" />Arena</span>,
+    },
+  ];
+
   return (
     <div className="space-y-6">
       {/* ── Header ── */}
@@ -217,7 +266,7 @@ export default function TradingAgentPanel() {
           </div>
           <div>
             <h3 className="font-semibold text-lg leading-tight">AI Auto-Trading Agent</h3>
-            <p className="text-sm text-gray-500">News-driven trades powered by Groq GPT-OSS 20B</p>
+            <p className="text-sm text-gray-500">Powered by NVIDIA Nemotron-3.5-Lightning-30B · Groq LLaMA fallback</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -265,38 +314,18 @@ export default function TradingAgentPanel() {
       </div>
 
       {/* ── Tab switcher ── */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
-        {(["config", "log", "journal", "arena"] as const).map((t) => (
+      <div className="flex flex-wrap gap-1 bg-gray-100 p-1 rounded-lg w-fit">
+        {tabs.map((t) => (
           <button
-            key={t}
-            onClick={() => setActiveTab(t)}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors capitalize ${
-              activeTab === t
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              activeTab === t.id
                 ? "bg-white shadow text-gray-900"
                 : "text-gray-500 hover:text-gray-700"
             }`}
           >
-            {t === "config" ? (
-              <span className="flex items-center gap-1.5"><Settings2 className="h-3.5 w-3.5" />Configure</span>
-            ) : t === "log" ? (
-              <span className="flex items-center gap-1.5">
-                <Activity className="h-3.5 w-3.5" />Activity Log
-                {log.length > 0 && (
-                  <span className="bg-purple-100 text-purple-700 text-[10px] font-semibold rounded-full px-1.5">{log.length}</span>
-                )}
-              </span>
-            ) : t === "journal" ? (
-              <span className="flex items-center gap-1.5">
-                <BookOpen className="h-3.5 w-3.5 text-indigo-600" />Journal
-                {tradeCount > 0 && (
-                  <span className="bg-indigo-100 text-indigo-700 text-[10px] font-semibold rounded-full px-1.5">{tradeCount}</span>
-                )}
-              </span>
-            ) : (
-              <span className="flex items-center gap-1.5">
-                <Swords className="h-3.5 w-3.5 text-purple-600" />Arena
-              </span>
-            )}
+            {t.label}
           </button>
         ))}
       </div>
@@ -444,12 +473,32 @@ export default function TradingAgentPanel() {
                   </div>
                 </div>
 
-                {/* Groq API key — required */}
+                {/* NVIDIA key — primary */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm flex items-center gap-1.5">
+                    <Key className="h-3.5 w-3.5 text-green-600" />
+                    NVIDIA API Key
+                    <span className="bg-green-100 text-green-700 text-[9px] font-bold px-1.5 py-0.5 rounded-full">PRIMARY</span>
+                  </Label>
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 border border-green-200 text-xs text-green-700">
+                    <span className="font-medium">⚡ Pre-configured</span>
+                    <span className="text-green-600">— NVIDIA Nemotron-3.5-Lightning-30B-A3B is active</span>
+                  </div>
+                  <p className="text-[11px] text-gray-400">
+                    Using NVIDIA NIM at{" "}
+                    <a href="https://build.nvidia.com/nvidia/nemotron-3.5-lightning-30b-a3b" target="_blank" rel="noreferrer" className="underline text-green-600">
+                      build.nvidia.com
+                    </a>
+                    . Hybrid MoE architecture — 3B active params, 30B total. Fast &amp; accurate.
+                  </p>
+                </div>
+
+                {/* Groq API key — fallback */}
                 <div className="space-y-1.5">
                   <Label className="text-sm flex items-center gap-1.5">
                     <Key className="h-3.5 w-3.5 text-orange-500" />
                     Groq API Key
-                    <span className="text-red-500 text-xs font-normal">(required)</span>
+                    <span className="text-gray-400 text-xs font-normal">(fallback)</span>
                   </Label>
                   <Input
                     placeholder="gsk_…"
@@ -468,7 +517,7 @@ export default function TradingAgentPanel() {
                     <a href="https://console.groq.com" target="_blank" rel="noreferrer" className="underline text-purple-600">
                       console.groq.com
                     </a>
-                    . Powers LLaMA 3.3 70B trading decisions.
+                    . Used as fallback when NVIDIA is unavailable. Powers LLaMA-3.3-70B.
                   </p>
                 </div>
 
@@ -612,6 +661,11 @@ export default function TradingAgentPanel() {
       {activeTab === "journal" && (
         <TradeJournal onNavigateToConfig={() => setActiveTab("config")} />
       )}
+
+      {/* ══════════════════════════════════════════════════
+          DEBATE TAB
+      ══════════════════════════════════════════════════ */}
+      {activeTab === "debate" && <AgentDebatePanel />}
 
       {/* ══════════════════════════════════════════════════
           ARENA TAB
