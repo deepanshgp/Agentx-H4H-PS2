@@ -1,9 +1,10 @@
 // Server-side LLM proxy — avoids CORS by calling NVIDIA/Groq from the server.
 // Browser calls POST /api/llm  →  this route forwards to NVIDIA or Groq  →  returns JSON.
-//
-// Keys are read from server-side env vars (no NEXT_PUBLIC_ prefix needed here).
 
 import { NextRequest, NextResponse } from "next/server";
+
+// Increase body size limit for moderator prompts that include full debate transcripts
+export const config = { api: { bodyParser: { sizeLimit: "1mb" } } };
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
